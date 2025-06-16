@@ -16,39 +16,52 @@ import numpy as np
 from tensorflow.keras.models import load_model
 from tensorflow.keras.preprocessing.image import load_img, img_to_array
 import os
+import gdown
 
 # Constants
 IMG_SIZE = 224
 
-# Class-to-model mapping
-CLASS_MODEL_MAP = {
-    "covid": "covid_model.h5",
-    "brain": "brain_model.h5",
-    "alzheimer": "Alzheimer_model.h5"
+# Google Drive File IDs
+MODEL_IDS = {
+    "covid": "10vU_bpL1dv-m1LrtmQXFEHPnB6Om3dLf",
+    "brain": "1q-9E1ClSyZaTQUndee84GAhohJtxSqeO",
+    "alzheimer": "1O0aGbCvC_cLhDxxIqAdTPBK_DqGp76a7"
 }
 
-# Label mappings
+# Local filenames
+MODEL_FILES = {
+    "covid": "covid_model.h5",
+    "brain": "brain_model.h5",
+    "alzheimer": "alzheimer_model.h5"
+}
+
+# Class label mapping
 CLASS_LABELS = {
     "alzheimer": ["NonDemented", "VeryMildDemented", "MildDemented", "ModerateDemented"],
     "brain": ["No Tumor", "Tumor"]
 }
 
+# Download model if not present
+def download_model(file_id, filename):
+    url = f"https://drive.google.com/uc?id={file_id}"
+    if not os.path.exists(filename):
+        with st.spinner(f"📥 Downloading {filename}..."):
+            gdown.download(url, filename, quiet=False)
+        st.success(f"✅ Downloaded: {filename}")
+
+# Image prediction logic
 def predict_image(model_path, image_file, is_binary=True, inv_labels=None):
     model = load_model(model_path)
-    st.success(f"✅ Model Loaded: {os.path.basename(model_path)}")
+    st.success(f"✅ Model Loaded: {model_path}")
 
-    # Display image
     img = load_img(image_file, target_size=(IMG_SIZE, IMG_SIZE))
     st.image(img, caption="Uploaded Image", use_column_width=True)
 
-    # Preprocess
     img_array = img_to_array(img)
     img_array = np.expand_dims(img_array, axis=0) / 255.0
 
-    # Predict
     prediction = model.predict(img_array)
 
-    # Output
     if is_binary:
         score = prediction[0][0]
         st.write("🔍 Prediction Score:", score)
@@ -65,17 +78,17 @@ def predict_image(model_path, image_file, is_binary=True, inv_labels=None):
 # Streamlit UI
 st.title("🧬 Multi-Disease Image Classifier")
 
-st.markdown("**Available Classes:** `covid`, `brain`, `alzheimer`")
-class_name = st.text_input("📌 Enter the class you want to test").strip().lower()
+class_name = st.text_input("📌 Enter class (covid / brain / alzheimer):").strip().lower()
 
 if class_name:
-    st.write(f"🔎 Selected Class: **{class_name}**")
-
-    if class_name in CLASS_MODEL_MAP:
+    if class_name in MODEL_IDS:
+        # Download model if not available
+        download_model(MODEL_IDS[class_name], MODEL_FILES[class_name])
+        
         uploaded_file = st.file_uploader("📂 Upload an image", type=["jpg", "jpeg", "png"])
         if uploaded_file is not None:
             is_binary = class_name == "covid"
             inv_labels = CLASS_LABELS.get(class_name)
-            predict_image(CLASS_MODEL_MAP[class_name], uploaded_file, is_binary, inv_labels)
+            predict_image(MODEL_FILES[class_name], uploaded_file, is_binary, inv_labels)
     else:
-        st.warning("⚠️ Invalid class. Try: covid, brain, or alzheimer.")
+        st.warning("⚠️ Invalid class. Use: covid, brain, or alzheimer.")
