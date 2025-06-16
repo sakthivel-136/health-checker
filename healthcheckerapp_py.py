@@ -7,9 +7,7 @@ Original file is located at
     https://colab.research.google.com/drive/1HF3HtWcbGulDItoUdLITLyXfq1P2dbK5
 """
 
-!pip install streamlit
 
-!ls -lh /content/brain_model.h5
 
 import streamlit as st
 import numpy as np
