@@ -13,70 +13,69 @@ Original file is located at
 
 import streamlit as st
 import numpy as np
-import tensorflow as tf
-from tensorflow import keras
-from tensorflow.keras.preprocessing import image
-from PIL import Image
+from tensorflow.keras.models import load_model
+from tensorflow.keras.preprocessing.image import load_img, img_to_array
+import os
 
 # Constants
 IMG_SIZE = 224
-inv_labels = {
-    0: 'MildDemented',
-    1: 'ModerateDemented',
-    2: 'NonDemented',
-    3: 'VeryMildDemented'
+
+# Class-to-model mapping
+CLASS_MODEL_MAP = {
+    "covid": "covid_model.h5",
+    "brain": "brain_model.h5",
+    "alzheimer": "Alzheimer_model.h5"
 }
 
-# Load models
-@st.cache_resource
-def load_models():
-    covid_model = tf.keras.models.load_model('covid_model.h5')
-    brain_model = tf.keras.models.load_model('brain_model.h5')
-    alz_model = tf.keras.models.load_model('Alzheimer_model.h5')
-    return covid_model, brain_model, alz_model
+# Label mappings
+CLASS_LABELS = {
+    "alzheimer": ["NonDemented", "VeryMildDemented", "MildDemented", "ModerateDemented"],
+    "brain": ["No Tumor", "Tumor"]
+}
 
-covid_model, brain_model, alz_model = load_models()
+def predict_image(model_path, image_file, is_binary=True, inv_labels=None):
+    model = load_model(model_path)
+    st.success(f"✅ Model Loaded: {os.path.basename(model_path)}")
 
-# UI Layout
-st.set_page_config(page_title="Online Health Checker", layout="centered")
-st.markdown("<h1 style='text-align: center;'>🩺 Online Health Checker</h1>", unsafe_allow_html=True)
+    # Display image
+    img = load_img(image_file, target_size=(IMG_SIZE, IMG_SIZE))
+    st.image(img, caption="Uploaded Image", use_column_width=True)
 
-# Option Selection
-option = st.radio(
-    "🧪 Select Diagnosis Type:",
-    ("Covid Detection", "Brain Tumor Detection", "Alzheimer's Detection"),
-    horizontal=True
-)
+    # Preprocess
+    img_array = img_to_array(img)
+    img_array = np.expand_dims(img_array, axis=0) / 255.0
 
-# File Upload
-uploaded_file = st.file_uploader("📤 Upload an Image", type=['jpg', 'jpeg', 'png'])
+    # Predict
+    prediction = model.predict(img_array)
 
-if uploaded_file is not None:
-    # Show uploaded image
-    img = Image.open(uploaded_file).convert('RGB')
-    st.image(img, caption='📸 Uploaded Image', use_column_width=True)
-
-    # Preprocess image
-    img = img.resize((IMG_SIZE, IMG_SIZE))
-    img_array = image.img_to_array(img) / 255.0
-    img_array = np.expand_dims(img_array, axis=0)
-
-    # Prediction based on selected model
-    if option == "Covid Detection":
-        prediction = covid_model.predict(img_array)
-        result = "🟢 COVID Negative" if prediction[0][0] < 0.5 else "🔴 COVID Positive"
-        st.subheader("Result: " + result)
-
-    elif option == "Brain Tumor Detection":
-        prediction = brain_model.predict(img_array)
-        result = "🧠 No Brain Tumor" if prediction[0][0] < 0.5 else "🚨 Brain Tumor Detected"
-        st.subheader("Result: " + result)
-
-    elif option == "Alzheimer's Detection":
-        prediction = alz_model.predict(img_array)
-        class_index = np.argmax(prediction)
-        class_name = inv_labels[class_index]
-        if class_name == "NonDemented":
-            st.subheader("🧓 Result: No Alzheimer's Detected")
+    # Output
+    if is_binary:
+        score = prediction[0][0]
+        st.write("🔍 Prediction Score:", score)
+        if score <= 0.5:
+            st.error("🧪 Result: Positive")
         else:
-            st.subheader(f"🧠 Alzheimer's Stage Detected: {class_name}")
+            st.success("🧪 Result: Negative")
+    else:
+        index = np.argmax(prediction)
+        label = inv_labels[index] if inv_labels else f"Class {index}"
+        st.write("🔍 Prediction Probabilities:", prediction[0])
+        st.info(f"🧠 Predicted Class: {label}")
+
+# Streamlit UI
+st.title("🧬 Multi-Disease Image Classifier")
+
+st.markdown("**Available Classes:** `covid`, `brain`, `alzheimer`")
+class_name = st.text_input("📌 Enter the class you want to test").strip().lower()
+
+if class_name:
+    st.write(f"🔎 Selected Class: **{class_name}**")
+
+    if class_name in CLASS_MODEL_MAP:
+        uploaded_file = st.file_uploader("📂 Upload an image", type=["jpg", "jpeg", "png"])
+        if uploaded_file is not None:
+            is_binary = class_name == "covid"
+            inv_labels = CLASS_LABELS.get(class_name)
+            predict_image(CLASS_MODEL_MAP[class_name], uploaded_file, is_binary, inv_labels)
+    else:
+        st.warning("⚠️ Invalid class. Try: covid, brain, or alzheimer.")
