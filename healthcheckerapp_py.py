@@ -30,9 +30,9 @@ inv_labels = {
 # Load models
 @st.cache_resource
 def load_models():
-    covid_model = tf.keras.models.load_model('/content/covid_model.h5')
-    brain_model = tf.keras.models.load_model('/content/brain_model.h5')
-    alz_model = tf.keras.models.load_model('/content/Alzheimer_model.h5')
+    covid_model = tf.keras.models.load_model('covid_model.h5')
+    brain_model = tf.keras.models.load_model('brain_model.h5')
+    alz_model = tf.keras.models.load_model('Alzheimer_model.h5')
     return covid_model, brain_model, alz_model
 
 covid_model, brain_model, alz_model = load_models()
